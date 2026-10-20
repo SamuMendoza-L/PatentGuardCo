@@ -1,0 +1,56 @@
+{
+  "detail": [
+    {
+      "type": "missing",
+      "loc": [
+        "body",
+        "numeros_solicitud"
+      ],
+      "msg": "Field required",
+      "input": {
+        "solicitud": "99020335",
+        "a_o_de_publicaci_n": "2000",
+        "naturaleza": "Patente de Invención Nacional",
+        "sector": "Electricidad - Electrónica",
+        "titulo": "DISPOSITIVO ACUSTICO",
+        "fecha_de_publicacion": "31/01/2000",
+        "pais": "GB",
+        "region": "INGLATERRA",
+        "ciudad": "CAMBRIDGE",
+        "solicitante": "NEW TRANSDUCERS LIMITED (GB)",
+        "inventor": "HENRY AZIMA; JOERG PANZER",
+        "clasificacion": "H04R 1/28",
+        "residente": "No residente",
+        "tr_mite": "Patente de Invención",
+        "pa_s_nom": "Reino Unido de Gran Bretaña e Irlanda del Norte",
+        "v_a_presntac": "Nacional"
+      }
+    },
+    {
+      "type": "missing",
+      "loc": [
+        "body",
+        "descripcion_conflicto"
+      ],
+      "msg": "Field required",
+      "input": {
+        "solicitud": "99020335",
+        "a_o_de_publicaci_n": "2000",
+        "naturaleza": "Patente de Invención Nacional",
+        "sector": "Electricidad - Electrónica",
+        "titulo": "DISPOSITIVO ACUSTICO",
+        "fecha_de_publicacion": "31/01/2000",
+        "pais": "GB",
+        "region": "INGLATERRA",
+        "ciudad": "CAMBRIDGE",
+        "solicitante": "NEW TRANSDUCERS LIMITED (GB)",
+        "inventor": "HENRY AZIMA; JOERG PANZER",
+        "clasificacion": "H04R 1/28",
+        "residente": "No residente",
+        "tr_mite": "Patente de Invención",
+        "pa_s_nom": "Reino Unido de Gran Bretaña e Irlanda del Norte",
+        "v_a_presntac": "Nacional"
+      }
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "status": "partial_success",
+  "resumen_procesamiento": {
+    "solicitudes_consultadas": 2,
+    "registros_encontrados": 0,
+    "solicitudes_no_encontradas": 2,
+    "total_inconsistencias_detectadas": 0
+  },
+  "registros_encontrados": [],
+  "inconsistencias_tecnicas": [],
+  "analisis_etico_gemini": null,
+  "limitaciones_y_advertencias": [
+    "Las similitudes entre resúmenes de código o títulos no constituyen prueba de plagio o infracción legal por sí solas.",
+    "El análisis generado por Gemini API es puramente cualitativo/académico y no constituye un dictamen ni peritaje judicial vinculante.",
+    "Las siguientes solicitudes no fueron localizadas en el dataset público: ['NC2026/000123', 'NC2026/000456']",
+    "Información insuficiente para que Gemini realice un análisis ético detallado (no se encontraron registros de patentes válidos)."
+  ]
+}
