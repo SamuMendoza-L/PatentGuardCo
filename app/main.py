@@ -1,4 +1,5 @@
 import logging
+from time import perf_counter
 from typing import List, Dict, Any
 from fastapi import FastAPI, HTTPException, status
 
@@ -36,6 +37,7 @@ def health_check():
 
 @app.post("/analizar-conflicto", response_model=ConflictAnalysisResponse, status_code=status.HTTP_200_OK)
 async def analizar_conflicto_patente(payload: ConflictAnalysisRequest):
+    inicio_procesamiento = perf_counter()
     registros_encontrados: List[Dict[str, Any]] = []
     solicitudes_no_encontradas: List[str] = []
     inconsistencias_unificadas: List[str] = []
@@ -96,15 +98,19 @@ async def analizar_conflicto_patente(payload: ConflictAnalysisRequest):
 
     status_code = "success" if registros_encontrados and evaluacion_gemini else "partial_success"
 
+    tiempo_procesamiento_ms = round((perf_counter() - inicio_procesamiento) * 1000, 2)
+
     return ConflictAnalysisResponse(
         status=status_code,
         resumen_procesamiento={
             "solicitudes_consultadas": len(payload.numeros_solicitud),
             "registros_encontrados": len(registros_encontrados),
             "solicitudes_no_encontradas": len(solicitudes_no_encontradas),
-            "total_inconsistencias_detectadas": len(inconsistencias_unificadas)
+            "total_inconsistencias_detectadas": len(inconsistencias_unificadas),
+            "tiempo_procesamiento_ms": tiempo_procesamiento_ms,
         },
         registros_encontrados=registros_encontrados,
+        solicitudes_no_encontradas=solicitudes_no_encontradas,
         inconsistencias_tecnicas=inconsistencias_unificadas,
         analisis_etico_gemini=evaluacion_gemini,
         limitaciones_y_advertencias=limitaciones
