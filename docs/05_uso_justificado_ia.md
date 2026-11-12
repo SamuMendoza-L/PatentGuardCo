@@ -92,6 +92,9 @@ Las pruebas se implementaron con **pytest** y están ubicadas en la carpeta `tes
 | Inclusión de `solicitudes_no_encontradas` en la respuesta y de `tiempo_procesamiento_ms` en las métricas de procesamiento. | `app/schemas.py`, `app/main.py` | Expone de forma trazable las consultas sin coincidencia y permite observar el tiempo total del endpoint, sin modificar su flujo de negocio. |
 | Eliminación de comillas simples y caracteres de control antes de construir `$where`. | `app/client_datos_abiertos.py` | Reduce el riesgo de inyección o de consultas SoQL malformadas, manteniendo la consulta remota limitada a una coincidencia. |
 | Sustitución de `google-generativeai` por `google-genai` y fijación de versiones usadas por el proyecto. | `requirements.txt` | Alinea las dependencias reproducibles con el SDK que importa `app/gemini_service.py` y con el entorno validado. |
+| Límites de longitud para solicitudes, descripción e inventores reclamantes; omisión de detalles internos en errores de proveedores. | `app/schemas.py`, `app/main.py` | Rechaza entradas que pueden degradar el servicio y evita reflejar secretos, rutas o mensajes internos en la respuesta HTTP. |
+| Suite de seguridad con inyección SoQL, filtración de información y validación de cargas malformadas. | `tests/test_security.py` | Comprueba controles de entrada y confidencialidad mediante *mocks*, sin acceder a Internet ni a Gemini. |
+| Suite asíncrona de 25 solicitudes concurrentes mediante `ASGITransport`. | `tests/test_performance.py` | Verifica estabilidad, ausencia de estado compartido observable y promedio de tiempo interno inferior a 150 ms con servicios simulados. |
 
 La ejecución posterior a la remediación se realiza con:
 
@@ -100,6 +103,10 @@ pytest -v
 ```
 
 Resultado verificado: `18 passed, 1 warning`. No se emitieron advertencias de Pydantic. La única advertencia restante procede de `fastapi.testclient`/Starlette e informa una transición interna hacia `httpx2`; no corresponde a la aplicación ni a los esquemas Pydantic remediados.
+
+### Testing no funcional — Fase 2
+
+La evidencia completa de la última ejecución se conserva en `docs/evidencia_ejecucion_pruebas.txt`. La suite pasó de 18 a 24 pruebas: incorpora 5 verificaciones de seguridad y una prueba asíncrona de concurrencia con 25 solicitudes. Su resultado fue `24 passed, 1 warning`; la advertencia es la misma de Starlette descrita anteriormente y no se producen llamadas de red ni a Gemini durante las pruebas.
 
 ## Conclusión sobre el uso de Gemini
 

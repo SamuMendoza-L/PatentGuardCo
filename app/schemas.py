@@ -1,9 +1,9 @@
-from typing import List, Dict, Any, Optional
+from typing import Annotated, List, Dict, Any, Optional
 from pydantic import BaseModel, Field
 
 
 class ConflictAnalysisRequest(BaseModel):
-    numeros_solicitud: List[str] = Field(
+    numeros_solicitud: List[Annotated[str, Field(max_length=100)]] = Field(
         ...,
         min_length=1,
         description="Lista de identificadores o números de solicitud de patente a consultar.",
@@ -12,6 +12,7 @@ class ConflictAnalysisRequest(BaseModel):
     descripcion_conflicto: str = Field(
         ...,
         min_length=10,
+        max_length=5000,
         description="Descripción contextual de la disputa de autoría o alegato.",
         json_schema_extra={
             "examples": [
@@ -20,7 +21,7 @@ class ConflictAnalysisRequest(BaseModel):
             ]
         },
     )
-    inventores_reclamantes: Optional[List[str]] = Field(
+    inventores_reclamantes: Optional[List[Annotated[str, Field(max_length=200)]]] = Field(
         default=None,
         description="Nombres de los desarrolladores o inventores que reclaman la autoría moral.",
         json_schema_extra={"examples": [["Samuel Mendoza", "Andrés Felipe"]]},

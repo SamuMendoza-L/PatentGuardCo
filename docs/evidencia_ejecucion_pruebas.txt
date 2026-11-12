@@ -1,0 +1,40 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.13.1, pytest-9.1.1, pluggy-1.7.0 -- /Users/samuelmendoza/M-Calidad_de_software/PatentGuard CO/.venv/bin/python3.13
+cachedir: .pytest_cache
+rootdir: /Users/samuelmendoza/M-Calidad_de_software/PatentGuard CO
+plugins: asyncio-1.4.0, anyio-4.15.1
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 24 items
+
+tests/test_api.py::test_health_check_endpoint PASSED                     [  4%]
+tests/test_api.py::test_analizar_conflicto_exitoso PASSED                [  8%]
+tests/test_api.py::test_analizar_conflicto_payload_invalido PASSED       [ 12%]
+tests/test_client_datos_abiertos.py::test_consultar_patente_exitoso PASSED [ 16%]
+tests/test_client_datos_abiertos.py::test_consultar_patente_no_encontrada PASSED [ 20%]
+tests/test_client_datos_abiertos.py::test_manejo_error_http PASSED       [ 25%]
+tests/test_client_datos_abiertos.py::test_manejo_timeout PASSED          [ 29%]
+tests/test_client_datos_abiertos.py::test_manejo_json_invalido PASSED    [ 33%]
+tests/test_gemini_service.py::test_evaluar_disputa_exitoso PASSED        [ 37%]
+tests/test_gemini_service.py::test_error_falta_api_key PASSED            [ 41%]
+tests/test_gemini_service.py::test_manejo_error_limite_cuota PASSED      [ 45%]
+tests/test_gemini_service.py::test_manejo_respuesta_json_invalida PASSED [ 50%]
+tests/test_performance.py::test_analizar_conflicto_soporta_25_peticiones_concurrentes PASSED [ 54%]
+tests/test_security.py::test_sanitiza_intento_de_inyeccion_soql PASSED   [ 58%]
+tests/test_security.py::test_respuesta_no_filtra_secretos_ni_rutas_internas PASSED [ 62%]
+tests/test_security.py::test_rechaza_payloads_corruptos_o_excesivamente_largos[payload0] PASSED [ 66%]
+tests/test_security.py::test_rechaza_payloads_corruptos_o_excesivamente_largos[payload1] PASSED [ 70%]
+tests/test_security.py::test_rechaza_payloads_corruptos_o_excesivamente_largos[payload2] PASSED [ 75%]
+tests/test_validator.py::test_valid_patent_record PASSED                 [ 79%]
+tests/test_validator.py::test_missing_mandatory_fields PASSED            [ 83%]
+tests/test_validator.py::test_missing_recommended_fields PASSED          [ 87%]
+tests/test_validator.py::test_unexpected_data_types_and_date_anomalies PASSED [ 91%]
+tests/test_validator.py::test_publication_year_out_of_range PASSED       [ 95%]
+tests/test_validator.py::test_validate_dataset_with_duplicates PASSED    [100%]
+
+=============================== warnings summary ===============================
+.venv/lib/python3.13/site-packages/fastapi/testclient.py:1
+  /Users/samuelmendoza/M-Calidad_de_software/PatentGuard CO/.venv/lib/python3.13/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================== 24 passed, 1 warning in 1.34s =========================

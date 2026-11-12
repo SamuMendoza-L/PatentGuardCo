@@ -55,8 +55,8 @@ async def analizar_conflicto_patente(payload: ConflictAnalysisRequest):
             else:
                 solicitudes_no_encontradas.append(num_sol)
         except DatosAbiertosAPIError as err:
-            logger.warning(f"Error consultando datos.gov.co para {num_sol}: {err}")
-            limitaciones.append(f"No se pudo verificar en tiempo real la solicitud '{num_sol}': {str(err)}")
+            logger.warning("No fue posible consultar datos.gov.co para una solicitud.")
+            limitaciones.append("No fue posible verificar una solicitud en tiempo real por un error del proveedor de datos abiertos.")
 
     if solicitudes_no_encontradas:
         limitaciones.append(f"Las siguientes solicitudes no fueron localizadas en el dataset público: {solicitudes_no_encontradas}")
@@ -93,8 +93,8 @@ async def analizar_conflicto_patente(payload: ConflictAnalysisRequest):
                 inventores_reclamantes=payload.inventores_reclamantes
             )
         except GeminiServiceError as err:
-            logger.error(f"Fallo en el servicio Gemini API: {err}")
-            limitaciones.append(f"Evaluación ética con Gemini no disponible temporalmente: {str(err)}")
+            logger.error("La evaluación ética con Gemini no está disponible temporalmente.")
+            limitaciones.append("Evaluación ética con Gemini no disponible temporalmente.")
 
     status_code = "success" if registros_encontrados and evaluacion_gemini else "partial_success"
 
