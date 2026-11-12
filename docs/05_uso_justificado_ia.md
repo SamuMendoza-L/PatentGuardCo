@@ -84,16 +84,170 @@ Las pruebas se implementaron con **pytest** y están ubicadas en la carpeta `tes
 
 ## Resultado de la ejecución
 
-La última ejecución de la suite produjo el siguiente resultado:
+### Remediación y hardening — Fase 1
+
+| Cambio aplicado | Archivo | Justificación de calidad |
+| --- | --- | --- |
+| Migración de `min_items` y `example` a `min_length` y `json_schema_extra={"examples": [...]}`. | `app/schemas.py` | Elimina las advertencias de atributos deprecados de Pydantic V1 y mantiene las mismas reglas de validación y ejemplos del contrato OpenAPI. |
+| Inclusión de `solicitudes_no_encontradas` en la respuesta y de `tiempo_procesamiento_ms` en las métricas de procesamiento. | `app/schemas.py`, `app/main.py` | Expone de forma trazable las consultas sin coincidencia y permite observar el tiempo total del endpoint, sin modificar su flujo de negocio. |
+| Eliminación de comillas simples y caracteres de control antes de construir `$where`. | `app/client_datos_abiertos.py` | Reduce el riesgo de inyección o de consultas SoQL malformadas, manteniendo la consulta remota limitada a una coincidencia. |
+| Sustitución de `google-generativeai` por `google-genai` y fijación de versiones usadas por el proyecto. | `requirements.txt` | Alinea las dependencias reproducibles con el SDK que importa `app/gemini_service.py` y con el entorno validado. |
+| Límites de longitud para solicitudes, descripción e inventores reclamantes; omisión de detalles internos en errores de proveedores. | `app/schemas.py`, `app/main.py` | Rechaza entradas que pueden degradar el servicio y evita reflejar secretos, rutas o mensajes internos en la respuesta HTTP. |
+| Suite de seguridad con inyección SoQL, filtración de información y validación de cargas malformadas. | `tests/test_security.py` | Comprueba controles de entrada y confidencialidad mediante *mocks*, sin acceder a Internet ni a Gemini. |
+| Suite asíncrona de 25 solicitudes concurrentes mediante `ASGITransport`. | `tests/test_performance.py` | Verifica estabilidad, ausencia de estado compartido observable y promedio de tiempo interno inferior a 150 ms con servicios simulados. |
+
+La ejecución posterior a la remediación se realiza con:
 
 ```text
-18 passed
+pytest -v
 ```
 
-Se emitieron advertencias de deprecación de FastAPI/Pydantic; no provocan fallos funcionales, pero deben atenderse antes de una actualización mayor de las dependencias.
+Resultado verificado: `18 passed, 1 warning`. No se emitieron advertencias de Pydantic. La única advertencia restante procede de `fastapi.testclient`/Starlette e informa una transición interna hacia `httpx2`; no corresponde a la aplicación ni a los esquemas Pydantic remediados.
+
+### Testing no funcional — Fase 2
+
+La evidencia completa de la última ejecución se conserva en `docs/evidencia_ejecucion_pruebas.txt`. La suite pasó de 18 a 24 pruebas: incorpora 5 verificaciones de seguridad y una prueba asíncrona de concurrencia con 25 solicitudes. Su resultado fue `24 passed, 1 warning`; la advertencia es la misma de Starlette descrita anteriormente y no se producen llamadas de red ni a Gemini durante las pruebas.
 
 ## Conclusión sobre el uso de Gemini
 
 Gemini está justificado como una capa de apoyo cualitativo para organizar hallazgos, explicar limitaciones y formular recomendaciones relacionadas con la tensión entre autoría y lucro. La decisión técnica relevante no se delega a la IA: los campos obligatorios, la unicidad de las solicitudes, los tipos de datos y las fechas se evalúan mediante reglas de código comprobables.
 
 Por esta razón, un resultado de Gemini no se interpreta como prueba de plagio, fraude o titularidad. El sistema lo presenta como una evaluación orientativa que debe complementarse con evidencia documental y revisión humana especializada.
+
+# PROMPTS USADOS 
+
+Fase 1. Planificación y arquitectura
+Abre Gemini y pega este primer prompt.
+PROMPT 1 — Analizar la actividad y diseñar la solución
+Actúa como un ingeniero de software senior especializado en Python, APIs REST, pruebas unitarias y uso de Gemini API.
+Necesito desarrollar un proyecto académico para la asignatura Calidad de Software con los siguientes requisitos:
+Objetivo: desarrollar una API REST que consuma datos reales del Portal Nacional de Datos Abiertos de Colombia, integre Gemini para análisis inteligente, implemente pruebas unitarias y resuelva una problemática ética.
+Problemática: disputa de patentes por falta de reconocimiento de la autoría real de un desarrollo.
+Pregunta ética: ¿qué es más importante, la autoría o el lucro?
+Requisitos obligatorios:
+- Consumo de datos abiertos reales de Colombia.
+- Integración con Gemini API.
+- Endpoint funcional que analice un conflicto.
+- Respuestas JSON.
+- Pruebas unitarias con pytest.
+- Validación de integridad de datos.
+- Detección de inconsistencias.
+- Uso de Gemini para evaluar la dimensión ética del conflicto.
+Fuente de datos propuesta:
+https://www.datos.gov.co/Comercio-Industria-y-Turismo/Patentes-publicadas/9n7g-3red
+Tecnologías propuestas: Python, FastAPI, pytest, HTTPX o Requests y el SDK oficial de Gemini para Python.
+Primero analiza los requisitos y entrégame:
+1. Una explicación del problema que resolverá la aplicación.
+2. Una arquitectura sencilla y adecuada para un estudiante.
+3. Los endpoints necesarios y su propósito.
+4. La estructura de carpetas y archivos.
+5. Las reglas de validación de datos.
+6. Los casos de prueba unitarios que deberíamos implementar.
+7. El flujo de funcionamiento desde la petición hasta la respuesta JSON.
+No escribas código todavía. No agregues tecnologías innecesarias. Distingue las inconsistencias técnicas de las posibles infracciones de propiedad intelectual y no presentes los resultados de la IA como pruebas legales.
+
+Fase 2. Crear el proyecto en tu Mac
+Cuando Gemini haya terminado la planificación, pídele que te guíe para preparar el entorno de Python.
+PROMPT 2 — Preparar el entorno
+Basándote en la arquitectura que acabas de proponer, guíame paso a paso para crear el proyecto en mi Mac.
+Necesito que me indiques:
+1. Cómo comprobar la versión de Python.
+2. Cómo crear la carpeta del proyecto.
+3. Cómo crear y activar un entorno virtual.
+4. Qué dependencias instalar y para qué sirve cada una.
+5. Cómo organizar las carpetas y archivos.
+6. Cómo configurar de forma segura la clave de Gemini mediante variables de entorno.
+7. Cómo ejecutar FastAPI y comprobar que funciona.
+Dame comandos concretos para la terminal de macOS, uno por uno, y explícame qué resultado debería observar después de cada paso. No avances al siguiente paso hasta que pueda verificar el anterior. No expongas claves secretas en el código ni en GitHub.
+
+Fase 3. Conectar los datos abiertos de Colombia
+El portal utiliza identificadores de conjuntos de datos. Para las patentes publicadas, el identificador es 9n7g-3red.
+El endpoint de consulta pública de Socrata tiene esta estructura:
+https://www.datos.gov.co/resource/9n7g-3red.json?$limit=10
+
+
+Esa URL sirve como punto de partida para obtener una muestra de registros. La respuesta esperada es un arreglo JSON con los datos disponibles.
+PROMPT 3 — Implementar el consumo de datos
+Implementemos ahora el módulo encargado de consumir los datos abiertos de patentes de Colombia.
+Utiliza como fuente:
+https://www.datos.gov.co/resource/9n7g-3red.json
+Requisitos:
+1. Crear una función que consulte la API pública.
+2. Permitir buscar por número de solicitud.
+3. Devolver los resultados como datos estructurados.
+4. Manejar errores de conexión, respuestas HTTP fallidas y respuestas JSON inválidas.
+5. Establecer tiempos de espera razonables.
+6. No descargar innecesariamente todos los registros.
+7. Separar el consumo HTTP de la lógica de validación.
+8. Crear pruebas unitarias que simulen las respuestas HTTP para no depender de Internet durante cada prueba.
+Antes de escribir código, confirma los nombres exactos de las columnas que necesitamos. Después implementa solamente este módulo y explícame cómo verificarlo.
+
+Fase 4. Implementar las validaciones y las pruebas unitarias
+Esta es la fase más importante para la asignatura.
+La validación debe funcionar sin necesidad de llamar a Gemini. Así podrás demostrar que tus reglas de calidad son deterministas y comprobables.
+PROMPT 4 — Validación de integridad y pytest
+Implementa el módulo de validación de integridad para la API de patentes.
+Crea reglas para comprobar:
+- Existencia del número de solicitud.
+- Título vacío o ausente.
+- Inventor y solicitante ausentes.
+- Año de publicación inválido o con tipo incorrecto.
+- Identificadores de solicitud duplicados en un conjunto de registros.
+- Registros incompletos y campos con tipos inesperados.
+Requisitos de calidad:
+1. Cada regla debe producir un resultado claro y verificable.
+2. Distingue campos obligatorios, campos recomendados y anomalías.
+3. No declares una infracción de autoría solo porque falte un campo.
+4. Crea pruebas unitarias con pytest para casos válidos, inválidos y límites.
+5. Usa datos de prueba ficticios, sin depender de la API pública.
+6. Comprueba que cada prueba falle cuando corresponda y pase cuando se cumpla la regla.
+Entrégame el código y después explícame cómo ejecutar las pruebas y cómo interpretar sus resultados. No continúes con Gemini todavía.
+
+Fase 5. Integrar Gemini
+Ahora sí, conecta el modelo. Gemini debe recibir un resumen de los hechos y las inconsistencias ya detectadas, no reemplazar las validaciones programadas.
+PROMPT 5 — Análisis ético con Gemini API
+Implementa el módulo de análisis ético utilizando el SDK oficial de Gemini para Python y la API key configurada mediante una variable de entorno.
+El modelo debe evaluar casos hipotéticos o reales documentados de posibles disputas de autoría en el contexto de patentes.
+Debe analizar:
+1. Qué información verificable existe en los registros.
+2. Qué inconsistencias fueron detectadas por el sistema.
+3. Qué información falta para comprender el conflicto.
+4. Qué riesgos éticos existen cuando no se reconoce una contribución.
+5. La pregunta: ¿qué es más importante, la autoría o el lucro?
+6. Qué pasos de verificación adicionales serían razonables.
+La respuesta debe tener una estructura JSON consistente con campos como resumen, hechos_verificados, inconsistencias, informacion_faltante, analisis_etico y recomendaciones.
+No permitas que Gemini invente datos, afirme culpabilidad sin pruebas o presente el registro de una patente como prueba definitiva de quién desarrolló una tecnología. El análisis debe ser neutral y reconocer las limitaciones de la información disponible.
+Maneja errores de autenticación, límites de solicitudes, indisponibilidad del servicio y respuestas no válidas. Las pruebas unitarias deben simular la respuesta de Gemini; no deben consumir la API real ni depender de su disponibilidad.
+Implementa solamente este módulo y explícame cómo probarlo.
+
+Fase 6. Crear el endpoint principal
+Cuando ambos módulos funcionen por separado, intégralos.
+PROMPT 6 — Endpoint /analizar-conflicto
+Integra el consumo de datos abiertos, la validación de integridad y el análisis de Gemini en el endpoint POST /analizar-conflicto.
+El endpoint debe:
+1. Recibir en JSON los identificadores de las solicitudes que se quieren comparar y una descripción del conflicto.
+2. Validar el formato de entrada.
+3. Consultar los registros reales disponibles.
+4. Ejecutar las reglas deterministas de integridad.
+5. Enviar a Gemini únicamente el contexto necesario para el análisis ético.
+6. Devolver una respuesta JSON que contenga el estado de la operación, los registros encontrados, las inconsistencias, el análisis ético y las limitaciones.
+7. Gestionar errores de entrada, ausencia de registros y fallos de servicios externos.
+No supongas que dos patentes similares demuestran plagio. Si la evidencia no es suficiente, devuelve un resultado de información insuficiente.
+Crea pruebas de integración con dependencias simuladas para verificar el flujo completo sin depender de Internet ni de la API real de Gemini.
+Muestra un ejemplo de petición y otro de respuesta JSON. Explícame cómo probar el endpoint mediante la documentación interactiva de FastAPI.
+
+Fase 7. Verificar la calidad del proyecto completo
+No basta con que la API arranque. Necesitas evidencias de que funciona correctamente y que los fallos previsibles se manejan bien.
+PROMPT 7 — Auditoría de calidad
+Actúa como evaluador de calidad de software. Revisa todo el proyecto implementado sin reescribirlo de inmediato.
+Comprueba:
+- Que cada requisito de la actividad esté implementado.
+- Que existan pruebas unitarias para las reglas de integridad.
+- Que los módulos de datos y Gemini tengan errores controlados.
+- Que las pruebas no dependan de Internet ni de llamadas reales a Gemini.
+- Que los endpoints devuelvan JSON y códigos HTTP adecuados.
+- Que las claves secretas no estén en el repositorio.
+- Que se diferencien hechos verificados, inconsistencias y conclusiones generadas por IA.
+- Que haya casos negativos y límites, no solamente pruebas exitosas.
+Ejecuta o indícame cómo ejecutar la suite completa de pruebas. Identifica los problemas concretos, priorízalos y propón correcciones pequeñas. No declares que el proyecto está probado si no hay resultados verificables.
+ Copiar prompt

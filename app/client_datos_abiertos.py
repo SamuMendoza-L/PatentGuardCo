@@ -1,4 +1,5 @@
 import httpx
+import unicodedata
 from typing import Dict, Any, Optional
 
 BASE_URL_DATOS_GOV = "https://www.datos.gov.co/resource/9n7g-3red.json"
@@ -19,9 +20,15 @@ async def consultar_patente_por_numero_solicitud(
     Consulta la API pública de datos.gov.co buscando por número de solicitud.
     Aplica filtro SoQL ($where) para evitar descargar el dataset completo.
     """
+    numero_solicitud_sanitizado = "".join(
+        caracter
+        for caracter in numero_solicitud
+        if caracter != "'" and unicodedata.category(caracter) != "Cc"
+    )
+
     # Consulta optimizada mediante parámetros Socrata
     params = {
-        "$where": f"solicitud = '{numero_solicitud}'",
+        "$where": f"solicitud = '{numero_solicitud_sanitizado}'",
         "$limit": 1
     }
 

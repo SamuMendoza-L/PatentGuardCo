@@ -1,4 +1,5 @@
 import logging
+from time import perf_counter
 from typing import List, Dict, Any
 from fastapi import FastAPI, HTTPException, status
 
@@ -36,6 +37,7 @@ def health_check():
 
 @app.post("/analizar-conflicto", response_model=ConflictAnalysisResponse, status_code=status.HTTP_200_OK)
 async def analizar_conflicto_patente(payload: ConflictAnalysisRequest):
+    inicio_procesamiento = perf_counter()
     registros_encontrados: List[Dict[str, Any]] = []
     solicitudes_no_encontradas: List[str] = []
     inconsistencias_unificadas: List[str] = []
@@ -53,8 +55,8 @@ async def analizar_conflicto_patente(payload: ConflictAnalysisRequest):
             else:
                 solicitudes_no_encontradas.append(num_sol)
         except DatosAbiertosAPIError as err:
-            logger.warning(f"Error consultando datos.gov.co para {num_sol}: {err}")
-            limitaciones.append(f"No se pudo verificar en tiempo real la solicitud '{num_sol}': {str(err)}")
+            logger.warning("No fue posible consultar datos.gov.co para una solicitud.")
+            limitaciones.append("No fue posible verificar una solicitud en tiempo real por un error del proveedor de datos abiertos.")
 
     if solicitudes_no_encontradas:
         limitaciones.append(f"Las siguientes solicitudes no fueron localizadas en el dataset público: {solicitudes_no_encontradas}")
@@ -91,10 +93,12 @@ async def analizar_conflicto_patente(payload: ConflictAnalysisRequest):
                 inventores_reclamantes=payload.inventores_reclamantes
             )
         except GeminiServiceError as err:
-            logger.error(f"Fallo en el servicio Gemini API: {err}")
-            limitaciones.append(f"Evaluación ética con Gemini no disponible temporalmente: {str(err)}")
+            logger.error("La evaluación ética con Gemini no está disponible temporalmente.")
+            limitaciones.append("Evaluación ética con Gemini no disponible temporalmente.")
 
     status_code = "success" if registros_encontrados and evaluacion_gemini else "partial_success"
+
+    tiempo_procesamiento_ms = round((perf_counter() - inicio_procesamiento) * 1000, 2)
 
     return ConflictAnalysisResponse(
         status=status_code,
@@ -102,9 +106,11 @@ async def analizar_conflicto_patente(payload: ConflictAnalysisRequest):
             "solicitudes_consultadas": len(payload.numeros_solicitud),
             "registros_encontrados": len(registros_encontrados),
             "solicitudes_no_encontradas": len(solicitudes_no_encontradas),
-            "total_inconsistencias_detectadas": len(inconsistencias_unificadas)
+            "total_inconsistencias_detectadas": len(inconsistencias_unificadas),
+            "tiempo_procesamiento_ms": tiempo_procesamiento_ms,
         },
         registros_encontrados=registros_encontrados,
+        solicitudes_no_encontradas=solicitudes_no_encontradas,
         inconsistencias_tecnicas=inconsistencias_unificadas,
         analisis_etico_gemini=evaluacion_gemini,
         limitaciones_y_advertencias=limitaciones
