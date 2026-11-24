@@ -6,7 +6,7 @@
 **Rama de Trabajo:** `trabajo3`  
 **Autores:** Samuel Mendoza, David, Juan Manuel  
 **Fecha de Inicio:** 23 de noviembre de 2026  
-**Estado:** Fase 1 (Línea Base), Fase 2 (Optimizaciones) y Fase 3 (Validación y Re-test) COMPLETADAS — Pendiente Fase 4 (Benchmark Rust vs. Python)  
+**Estado:** Fases 1, 2, 3 y 4 COMPLETADAS — Listo para entrega y exportación a PDF  
 
 ---
 
@@ -113,8 +113,8 @@ Se levantó la API optimizada en `http://127.0.0.1:8001` y se ejecutó `benchmar
 
 | Métrica de Calidad y Rendimiento | Estado Base (Fase 1 - $T_{\text{antes}}$) | Optimizado (Fase 3 - $T_{\text{después}}$) | Diferencia Absoluta | Impacto / % Mejora |
 |---|---|---|---|---|
-| **Total de solicitudes evaluadas** | 200 | 200 | 0 | 100% ejecutadas |
-| **Solicitudes exitosas (HTTP 200)** | 200 (100.0%) | 200 (100.0%) | 0 | 100% estabilidad |
+| **Total de solicitudes evaluadas** | 200 | 200 | 0 | 100% evaluadas |
+| **Solicitudes exitosas (HTTP 200)** | 200 (100.0%) | 200 (100.0%) | 0 | Estabilidad total |
 | **Solicitudes fallidas / timeouts** | 0 (0.0%) | 0 (0.0%) | 0 | Cero errores |
 | **Tiempo total de la prueba** | 21.712 s | 9.630 s | -12.082 s | **55.6% más rápido** |
 | **Throughput del Servidor (RPS)** | 9.21 req/s | **20.77 req/s** | +11.56 req/s | **+125.5% capacidad** |
@@ -146,11 +146,86 @@ $$\text{Mejora (\%)} = \left(\frac{1931.47\text{ ms} - 576.91\text{ ms}}{1931.47
 ---
 
 ## 5. Comparación Rust vs. Python — Fase 4 (Actividad 6)
-*(Pendiente para la Fase 4: `benchmarks/python_algo.py` y `benchmarks/rust_algo/`).*
+
+### 5.1 Definición del Algoritmo y Dataset Común
+Para contrastar el tiempo de ejecución entre ambos lenguajes sin reescribir la API, se aisló el núcleo algorítmico de **Validación Determinista, Detección de Duplicados en Memoria y Scoring de Severidad**:
+
+- **Dataset Común:** `benchmarks/patents_sample.json` conteniendo **20,000 registros sintéticos realistas** (8.05 MB), generado de forma pseudoaleatoria determinista (`seed=42`). Contiene casos válidos, títulos ausentes, campos de inventor vacíos, inconsistencias temporales de fechas y colisiones de solicitudes duplicadas.
+- **Implementaciones equivalentes:**
+  - Python: `benchmarks/python_algo.py`
+  - Rust: `benchmarks/rust_algo/` (`Cargo.toml`, `src/main.rs`)
+- **Condiciones de medición:**
+  - Carga previa del JSON completo en RAM antes de iniciar el cronómetro.
+  - 2 iteraciones de calentamiento (*warm-up*) no cronometradas.
+  - 20 iteraciones oficiales cronometradas (`time.perf_counter()` en Python y `std::time::Instant` en Rust).
+  - Tiempo de compilación medido por separado con `cargo clean && time cargo build --release`.
+
+### 5.2 Verificación de Paridad y Consistencia Algorítmica
+Ambas implementaciones se ejecutaron sobre exactamente el mismo archivo de 20,000 registros, arrojando **resultados y conteos idénticos al 100%**:
+
+| Métrica / Hallazgo Algorítmico | Conteo en Python | Conteo en Rust | ¿Coincidencia Exacta? |
+|---|---|---|---|
+| **Total registros evaluados** | 20,000 | 20,000 |  Sí (100%) |
+| **Registros válidos** | 19,600 | 19,600 |  Sí (100%) |
+| **Errores obligatorios (título/solicitud)** | 400 | 400 |  Sí (100%) |
+| **Advertencias recomendadas (inventor/solicitante)** | 4,192 | 4,192 |  Sí (100%) |
+| **Anomalías temporales (pub < rad)** | 3,566 | 3,566 |  Sí (100%) |
+| **Duplicados detectados (colisiones de ID)** | 500 | 500 |  Sí (100%) |
+| **Clasificación Riesgo Alto ($\ge 4.0$)** | 234 | 234 |  Sí (100%) |
+| **Clasificación Riesgo Medio ($2.5 - 3.9$)** | 4,010 | 4,010 |  Sí (100%) |
+| **Clasificación Riesgo Bajo ($< 2.5$)** | 15,756 | 15,756 |  Sí (100%) |
+
+### 5.3 Tabla Comparativa de Rendimiento: Rust vs. Python
+
+| Parámetro Evaluado | Implementación Python 3.13 | Implementación Rust 1.100 (Release) | Comparativa / Diferencia |
+|---|---|---|---|
+| **Tiempo de Compilación (Separado)** | **0.00 s** (Interpretado/JIT) | **16.61 s** (`cargo build --release`) | Rust requiere compilación AOT estricta |
+| **Tiempo Promedio de Ejecución** | **72.59 ms** | **2.21 ms** | **Rust 32.85x más rápido** |
+| **Tiempo Mínimo ($T_{\text{min}}$)** | 63.78 ms | **1.92 ms** | Rust 33.22x más rápido |
+| **Tiempo Máximo ($T_{\text{max}}$)** | 167.11 ms | **3.16 ms** | Menor variabilidad en Rust |
+| **Throughput del Algoritmo** | 275,507 registros/s | **9,069,320 registros/s** | +8.79 millones reg/s adicionales |
+| **Factor de Aceleración ($S$)** | 1.00x | **32.85x** | $$S = \frac{72.59}{2.21} \approx 32.85$$ |
+| **Reducción de Tiempo de CPU** | Referencia (0%) | **-96.95%** | $$\frac{72.59 - 2.21}{72.59} \times 100 = 96.95\%$$ |
+
+---
+
+### 5.4 Respuestas a las Preguntas Obligatorias de la Guía IUE
+
+#### 1. ¿Cuál implementación ejecutó más rápido?
+**Rust ejecutó 32.85 veces más rápido que Python** (2.21 ms frente a 72.59 ms por lote de 20,000 patentes).
+- **Razones técnicas:**
+  1. **Compilación Nativa a Código Máquina:** Rust utiliza el backend LLVM con optimizaciones de nivel 3 (`opt-level=3`, LTO y generación de código de una sola unidad), generando instrucciones vectorizadas x86_64 directas.
+  2. **Ausencia de Garbage Collector:** Rust gestiona la memoria de manera estática mediante su modelo de propiedad (*ownership* y *borrowing*) en el stack y heap sin pausas de recolección de basura.
+  3. **Tipado Estático y Representación en Memoria Contigua:** Las estructuras `PatentRecord` y `HashSet<&str>` en Rust operan directamente sobre referencias de memoria (`&str`) sin la sobrecarga del empaquetado de objetos (`PyObject`) de CPython.
+
+#### 2. ¿En cuál lenguaje tardaron menos tiempo desarrollando y probando la función?
+**En Python se tardó significativamente menos tiempo de desarrollo y prueba** (~15 minutos en Python vs. ~35 minutos en Rust).
+- **Razones técnicas:**
+  1. **Iteración Rápida:** Python no requiere una fase previa de compilación; el ciclo de guardado, ejecución y prueba es inmediato.
+  2. **Flexibilidad Dinámica:** Trabajar con diccionarios y parseo de cadenas en Python no exige definir esquemas formales estrictos ni gestionar ciclos de vida (*lifetimes*) de referencias.
+  3. **Curva del Compilador:** En Rust fue necesario configurar dependencias en `Cargo.toml` (`serde`, `serde_json`), definir anotaciones `#[derive(Deserialize)]`, adaptar la lógica al *borrow checker* y resolver advertencias de formato de cadenas antes de lograr la primera ejecución limpia.
+
+#### 3. ¿Cómo influyó la IA en el desarrollo y en la calidad del código?
+La Inteligencia Artificial influyó positivamente en tres dimensiones clave:
+1. **Aceleración en la Traducción Inter-lenguaje:** Facilitó la transposición precisa del algoritmo desde las estructuras dinámicas de Python (`dict`, `set`, regex) hacia las construcciones idiomáticas de Rust (`struct`, `HashSet<&str>`, match guards y parseo de bytes a nivel de slice).
+2. **Garantía de Paridad Algorítmica y Calidad:** Permitió diseñar casos de prueba controlados para verificar que ambos lenguajes arrojaran exactamente el mismo conteo de errores, advertencias, anomalías y puntuaciones de severidad, eliminando discrepancias sutiles de dominio.
+3. **Optimización de Perfiles de Compilación:** Orientó la configuración avanzada de `[profile.release]` en Rust (`lto = true`, `codegen-units = 1`, `opt-level = 3`) y el diseño del arnés de calentamiento (*warm-up*) en Python para aislar el tiempo de cómputo del tiempo de entrada/salida de disco.
 
 ---
 
 ## 6. Registro de Uso de Inteligencia Artificial
-- **Fase 1:** Formulación del arnés de benchmarking y registro de métricas de línea base.
-- **Fase 2:** Refactorización orientada a concurrencia (`asyncio.gather`), diseño del pooling en `lifespan`, esquematización del modelo de decisión JEV local y optimización de expresiones regulares.
-- **Fase 3:** Verificación de regresión automatizada, ejecución del re-test de carga idéntico y procesamiento estadístico comparativo de tiempos y percentiles.
+
+| Fase del Proyecto | Actividad Asistida por IA | Aporte a la Calidad de Software |
+|---|---|---|
+| **Fase 1** | Diseño del arnés de benchmarking (`benchmarks/load_test.py`). | Implementación de medición asíncrona no bloqueante con estadísticas (p90, p95, p99, RPS). |
+| **Fase 2** | Refactorización de FastAPI y conexión con JEV. | Integración de Connection Pooling en `lifespan`, paralelismo con `asyncio.gather`, caché TTL y modelo de decisión tipado con JSON Schema en Ollama. |
+| **Fase 3** | Validación de regresión funcional y re-test. | Verificación de 28 pruebas unitarias y cálculo del 70.13% de mejora según la fórmula oficial. |
+| **Fase 4** | Implementación y benchmarking Rust vs. Python. | Traducción idiomática del algoritmo a Rust, asegurando paridad matemática al 100% y análisis técnico de speedup. |
+
+---
+
+## 7. Conclusiones Finales del Trabajo 3
+
+1. **Efectividad Comprobada de las Optimizaciones:** La implementación de Connection Pooling global, concurrencia con `asyncio.gather` y caché TTL en memoria redujo la latencia promedio del microservicio en un **70.13%** (de 1931.47 ms a 576.91 ms) y aumentó el throughput en un **+125.5%**, procesando ráfagas de 200 solicitudes concurrentes con cero fallas.
+2. **Valor Didáctico del Modelo de Decisión JEV:** La integración del patrón de decisión de `charla-jev` sobre Ollama local dota a PatentGuard CO de un motor de triage cuantitativo con puntuaciones tipadas y niveles de certidumbre deterministas a costo cero.
+3. **Complementariedad entre Python y Rust:** El benchmark demostró que Python es insuperable para el desarrollo ágil de APIs REST y experimentación rápida, mientras que Rust ofrece una aceleración de **32.85x** para algoritmos intensivos en CPU, convirtiéndose en el candidato ideal para microservicios de alto cómputo o extensiones nativas mediante PyO3/maturin.
