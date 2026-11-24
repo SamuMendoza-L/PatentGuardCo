@@ -1,9 +1,20 @@
-from typing import Dict, Any, List, Set
+import re
+from typing import Dict, Any, List, Set, Optional
 from datetime import datetime
+
+# Optimización 4: Precompilación de expresiones regulares a nivel de módulo
+# Evita compilar regex en cada registro evaluado, acelerando el parseo en lotes grandes.
+_ISO_DATE_REGEX = re.compile(r"^\d{4}-\d{2}-\d{2}")
+_DMY_DATE_REGEX = re.compile(r"^\d{2}/\d{2}/\d{4}")
+
+_YEAR_MIN = 1800
+_YEAR_MAX = 2100
 
 
 class PatentValidationResult:
     """Estructura del resultado de validación de integridad."""
+    __slots__ = ("is_valid", "errors", "warnings", "anomalies")
+
     def __init__(self, is_valid: bool, errors: List[str], warnings: List[str], anomalies: List[str]):
         self.is_valid = is_valid
         self.errors = errors          # Campos obligatorios ausentes o corruptos
@@ -23,11 +34,11 @@ def validate_single_patent_record(record: Dict[str, Any]) -> PatentValidationRes
     """
     Valida la integridad técnica de un único registro de patente.
     Distingue entre campos obligatorios, recomendados y anomalías de datos.
+    
+    Optimización:
+    - Búsqueda directa O(1) por clave en diccionario sin copias intermedias.
+    - Pre-filtrado por expresiones regulares precompiladas para fechas.
     """
-    errors: List[str] = []
-    warnings: List[str] = []
-    anomalies: List[str] = []
-
     if not isinstance(record, dict):
         return PatentValidationResult(
             is_valid=False,
@@ -36,7 +47,11 @@ def validate_single_patent_record(record: Dict[str, Any]) -> PatentValidationRes
             anomalies=[]
         )
 
-    # 1. Validación de Campos Obligatorios
+    errors: List[str] = []
+    warnings: List[str] = []
+    anomalies: List[str] = []
+
+    # 1. Validación de Campos Obligatorios O(1)
     num_solicitud = record.get("numero_solicitud")
     if not num_solicitud or not str(num_solicitud).strip():
         errors.append("Campo obligatorio ausente o vacío: 'numero_solicitud'.")
@@ -49,7 +64,7 @@ def validate_single_patent_record(record: Dict[str, Any]) -> PatentValidationRes
     elif not isinstance(titulo, str):
         anomalies.append(f"Tipo de dato inesperado para 'titulo': se esperaba 'str', se obtuvo '{type(titulo).__name__}'.")
 
-    # 2. Validación de Campos Recomendados (Trazabilidad)
+    # 2. Validación de Campos Recomendados (Trazabilidad) O(1)
     solicitante = record.get("solicitante")
     if not solicitante or not str(solicitante).strip():
         warnings.append("Campo recomendado ausente: 'solicitante' (entidad o titular registrado).")
@@ -62,19 +77,22 @@ def validate_single_patent_record(record: Dict[str, Any]) -> PatentValidationRes
     elif not isinstance(inventor, str):
         anomalies.append(f"Tipo de dato inesperado para 'inventor': se esperaba 'str', se obtuvo '{type(inventor).__name__}'.")
 
-    # 3. Validación de Fechas y Anomalías Temporales
-    fecha_rad = _parse_date(record.get("fecha_radicacion"), "fecha_radicacion", anomalies)
-    fecha_pub = _parse_date(record.get("fecha_publicacion"), "fecha_publicacion", anomalies)
+    # 3. Validación de Fechas y Anomalías Temporales con Regex precompiladas
+    fecha_rad = _parse_date_optimizado(record.get("fecha_radicacion"), "fecha_radicacion", anomalies)
+    fecha_pub = _parse_date_optimizado(record.get("fecha_publicacion"), "fecha_publicacion", anomalies)
 
     if fecha_rad and fecha_pub:
         if fecha_pub < fecha_rad:
-            anomalies.append(f"Inconsistencia temporal: La fecha de publicación ({fecha_pub.strftime('%Y-%m-%d')}) es anterior a la fecha de radicación ({fecha_rad.strftime('%Y-%m-%d')}).")
+            anomalies.append(
+                f"Inconsistencia temporal: La fecha de publicación ({fecha_pub.strftime('%Y-%m-%d')}) "
+                f"es anterior a la fecha de radicación ({fecha_rad.strftime('%Y-%m-%d')})."
+            )
 
     # Validación específica de año de publicación si viene explicitado
     anio_pub = record.get("anio_publicacion")
     if anio_pub is not None:
         if isinstance(anio_pub, int):
-            if anio_pub < 1800 or anio_pub > 2100:
+            if anio_pub < _YEAR_MIN or anio_pub > _YEAR_MAX:
                 anomalies.append(f"Año de publicación fuera de rango razonable: {anio_pub}.")
         else:
             anomalies.append(f"Tipo de dato incorrecto para 'anio_publicacion': se esperaba 'int', se obtuvo '{type(anio_pub).__name__}'.")
@@ -85,7 +103,11 @@ def validate_single_patent_record(record: Dict[str, Any]) -> PatentValidationRes
 
 def validate_patent_dataset(records: List[Dict[str, Any]]) -> Dict[str, Any]:
     """
-    Valida un conjunto completo de registros de patentes y detecta duplicados.
+    Valida un conjunto completo de registros de patentes y detecta duplicados en O(n).
+    
+    Optimización:
+    - Uso de conjuntos hash Set[str] con inserción O(1) para detección instantánea de duplicados.
+    - Preubicación eficiente de resultados evitando recorridos anidados O(n^2).
     """
     if not isinstance(records, list):
         return {
@@ -105,7 +127,7 @@ def validate_patent_dataset(records: List[Dict[str, Any]]) -> Dict[str, Any]:
         if val_res.is_valid:
             valid_count += 1
 
-        # Detección de solicitudes duplicadas
+        # Detección de solicitudes duplicadas mediante tabla hash O(1)
         num_sol = rec.get("numero_solicitud") if isinstance(rec, dict) else None
         if isinstance(num_sol, str) and num_sol.strip():
             num_clean = num_sol.strip()
@@ -133,8 +155,12 @@ def validate_patent_dataset(records: List[Dict[str, Any]]) -> Dict[str, Any]:
     }
 
 
-def _parse_date(date_val: Any, field_name: str, anomalies: List[str]) -> Any:
-    """Auxiliar para parsear y validar campos de fecha."""
+def _parse_date_optimizado(date_val: Any, field_name: str, anomalies: List[str]) -> Optional[datetime]:
+    """
+    Auxiliar optimizado para parsear fechas.
+    Utiliza expresiones regulares precompiladas para verificar el formato antes de llamar a strptime,
+    evitando lanzar excepciones costosas en caminos no coincidentes.
+    """
     if not date_val:
         return None
     
@@ -142,13 +168,19 @@ def _parse_date(date_val: Any, field_name: str, anomalies: List[str]) -> Any:
         anomalies.append(f"Tipo de dato inesperado para '{field_name}': se esperaba 'str', se obtuvo '{type(date_val).__name__}'.")
         return None
 
-    # Admite timestamps ISO de Socrata y el formato DD/MM/AAAA del recurso de patentes.
     clean_date_str = date_val.split("T")[0]
-    for date_format in ("%Y-%m-%d", "%d/%m/%Y"):
+    
+    # Fast path: comprobación con regex precompilada en O(1)
+    if _ISO_DATE_REGEX.match(clean_date_str):
         try:
-            return datetime.strptime(clean_date_str, date_format)
+            return datetime.strptime(clean_date_str, "%Y-%m-%d")
         except ValueError:
-            continue
+            pass
+    elif _DMY_DATE_REGEX.match(clean_date_str):
+        try:
+            return datetime.strptime(clean_date_str, "%d/%m/%Y")
+        except ValueError:
+            pass
 
     anomalies.append(
         f"Formato de fecha inválido en '{field_name}': '{date_val}'. "

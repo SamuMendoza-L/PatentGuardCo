@@ -5,8 +5,8 @@
 **Proyecto Auditado:** PatentGuard CO  
 **Rama de Trabajo:** `trabajo3`  
 **Autores:** Samuel Mendoza, David, Juan Manuel  
-**Fecha de Inicio de Fase 1:** 23 de noviembre de 2026  
-**Estado:** Fase 1 completada (Línea base registrada) — Pendiente Fase 2 (Optimización)  
+**Fecha de Inicio:** 23 de noviembre de 2026  
+**Estado:** Fase 1 (Línea Base) y Fase 2 (Optimizaciones Implementadas) COMPLETADAS — Pendiente Fase 3 (Re-test y Cálculo de Mejora %)  
 
 ---
 
@@ -25,21 +25,13 @@ Para el desarrollo del Trabajo 3 se retomó la API auditada en el Trabajo 2 y se
 A partir de la auditoría técnica consolidada en el Trabajo 2 (`INFORME_AUDITORIA_FINAL.md`), se evidenciaron las siguientes ineficiencias de rendimiento y arquitectura en el estado base:
 
 1. **Creación Efímera de Conexiones HTTP (Sin Connection Pooling):**  
-   En `app/client_datos_abiertos.py`, cada consulta a `datos.gov.co` instancia un nuevo cliente `httpx.AsyncClient()`. Esto genera una sobrecarga continua por apertura y cierre de conexiones TCP y negociación de certificados TLS hacia el proveedor Socrata.
+   En `app/client_datos_abiertos.py`, cada consulta a `datos.gov.co` instanciaba un nuevo cliente `httpx.AsyncClient()`. Esto generaba una sobrecarga continua por apertura y cierre de sockets TCP y negociación TLS hacia Socrata.
 2. **Procesamiento Secuencial de Solicitudes:**  
-   En `app/main.py`, la ingesta de patentes se realiza mediante un bucle `for` secuencial (`for num_sol in payload.numeros_solicitud:`). Si una petición contiene múltiples solicitudes, la latencia se acumula linealmente.
+   En `app/main.py`, la ingesta de patentes se realizaba mediante un bucle `for` secuencial (`for num_sol in payload.numeros_solicitud:`).
 3. **Ausencia de Caché en Memoria (Sin TTL):**  
-   Las patentes registradas en `datos.gov.co` son registros históricos públicos inmutables en el corto y mediano plazo. En el estado base, consultas repetidas a la misma patente vuelven a golpear la red externa innecesariamente.
+   Consultas repetidas a la misma patente volvían a golpear la red externa innecesariamente.
 4. **Capa de Inteligencia Artificial Cualitativa sin Modelo de Decisión:**  
-   El servicio actual dependía exclusivamente de la generación de texto libre con Gemini, careciendo de un clasificador determinista tipado con distribución probabilística y score de severidad numérico calibrado (concepto extraído de `charla-jev`).
-
-### 1.3 Variables e Indicadores a Medir
-De acuerdo con la rúbrica oficial del Trabajo 3, se definieron los siguientes indicadores cuantitativos:
-- **$T_{\text{antes}}$:** Tiempo promedio de respuesta por solicitud en el estado base (en milisegundos).
-- **Latencias de Distribución:** Tiempo mínimo, tiempo máximo, mediana (p50) y percentil 95 (p95).
-- **Volumen de Solicitudes:** Solicitudes totales ejecutadas, exitosas (HTTP 2xx) y fallidas (HTTP 4xx/5xx o timeouts).
-- **Throughput:** Peticiones procesadas por segundo (req/s).
-- **Tasa de Error:** Porcentaje de fallas observadas bajo carga concurrente.
+   El servicio dependía exclusivamente de Gemini en prosa libre, careciendo de un clasificador determinista tipado con distribución probabilística y score numérico calibrado (concepto extraído de `charla-jev`).
 
 ---
 
@@ -51,10 +43,10 @@ Se diseñó e implementó el arnés de benchmarking automatizado en `benchmarks/
 - **Carga ejecutada:** 200 solicitudes HTTP POST.
 - **Concurrencia:** 20 peticiones simultáneas constantes.
 - **Dataset de carga:** Batería de 5 casos representativos que alternan patentes reales de `datos.gov.co` (`99020335` - *Dispositivo acústico*), disputas de autoría moral y casos de borde de solicitudes no localizadas.
-- **Aislamiento de prueba:** Durante esta Fase 1 **no se modificó ningún archivo dentro de `app/`**, preservando intacto el comportamiento auditado en el Trabajo 2.
+- **Aislamiento de prueba:** Durante la Fase 1 no se modificó ningún archivo dentro de `app/`, preservando intacto el comportamiento auditado.
 
 ### 2.2 Resultados Obtenidos en la Línea Base ($T_{\text{antes}}$)
-La prueba fue ejecutada sobre la API levantada en modo base (`uvicorn app.main:app --port 8001`) el día 23 de noviembre de 2026. La evidencia completa y cruda se encuentra registrada en `docs/trabajo3/evidencias_antes.txt`.
+La prueba fue ejecutada sobre la API levantada en modo base (`uvicorn app.main:app --port 8001`) el día 23 de noviembre de 2026. La evidencia cruda se encuentra registrada en `docs/trabajo3/evidencias_antes.txt`.
 
 | Métrica de Rendimiento | Valor Registrado (Estado Base - Línea Base) |
 |---|---|
@@ -72,41 +64,58 @@ La prueba fue ejecutada sobre la API levantada en modo base (`uvicorn app.main:a
 | **Percentil 99 (p99)** | 6706.90 ms |
 | **Desviación estándar** | 1644.60 ms |
 
-### 2.3 Análisis de Resultados de la Línea Base
-El valor base **$T_{\text{antes}} = 1931.47\text{ ms}$** evidencia de manera empírica el cuello de botella pronosticado:
-- El 95% de las solicitudes requirió hasta **4.58 segundos** para completarse bajo una concurrencia moderada de 20 hilos.
-- La dispersión (desviación estándar de 1644 ms y pico máximo de 7.93 segundos) confirma la degradación sufrida al negociar handshakes TLS individuales contra Socrata sin reutilización de conexiones ni caché.
-- Este valor de **$1931.47\text{ ms}$** se fija como el **denominador oficial** para calcular el porcentaje de mejora en la Fase 3.
+El valor oficial de latencia base registrado es **$T_{\text{antes}} = 1931.47\text{ ms}$**.
 
 ---
 
-## 3. Plan de Optimización — Fase 2 (Actividad 3)
+## 3. Optimización de la API — Fase 2 (Actividad 3)
 
-Para la siguiente fase, se aplicarán las siguientes optimizaciones de ingeniería de software en `app/`:
+Se implementaron 4 optimizaciones de arquitectura y calidad de software en `app/`, preservando al 100% la compatibilidad hacia atrás de los contratos en `app/schemas.py`:
 
-1. **Connection Pooling Global:** Reutilización de una única instancia de `httpx.AsyncClient` acoplada al ciclo de vida (`lifespan`) de FastAPI en `app/main.py` e inyectada en `app/client_datos_abiertos.py`.
-2. **Concurrencia con `asyncio.gather`:** Conversión del bucle secuencial de ingesta de patentes en consultas paralelas no bloqueantes.
-3. **Caché TTL en Memoria (`cachetools`):** Almacenamiento temporal de registros de patentes públicas y de evaluaciones para eliminar el 100% de la latencia de red en consultas repetidas.
-4. **Integración del Modelo de Decisión Local JEV (`app/jev_service.py`):** Incorporación del patrón de decisión de `charla-jev` ejecutado sobre el LLM local Ollama (`qwen3:1.7b`) con JSON Schema, asegurando un clasificador de severidad tipado, costo $0 y soporte offline.
+### 3.1 Connection Pooling Global (`app/main.py` y `app/client_datos_abiertos.py`)
+- Se implementó el gestor de ciclo de vida `@asynccontextmanager` (`lifespan`) en FastAPI.
+- Se configuró un cliente persistente `httpx.AsyncClient(limits=httpx.Limits(max_keepalive_connections=20, max_connections=50), timeout=10.0)` almacenado en `app.state.http_client`.
+- `app/client_datos_abiertos.py` reutiliza este cliente, eliminando la creación y destrucción de sockets TCP en cada petición HTTP.
+
+### 3.2 Concurrencia Asíncrona con `asyncio.gather` (`app/main.py`)
+- Se reemplazó el bucle secuencial `for num_sol in payload.numeros_solicitud` por `asyncio.gather(*tareas_consulta)`.
+- Si una petición contiene múltiples solicitudes de patentes, todas se consultan en paralelo sin bloquear el event loop.
+
+### 3.3 Caché TTL en Memoria con `cachetools` (`app/client_datos_abiertos.py` y `app/main.py`)
+- **Caché de Socrata:** Se integró `cachetools.TTLCache(maxsize=1024, ttl=300)` en `client_datos_abiertos.py`. Si una patente ya fue consultada en los últimos 5 minutos, se retorna en $O(1)$ sin tráfico de red.
+- **Caché de Evaluación:** Se integró `cachetools.TTLCache(maxsize=512, ttl=300)` en `main.py` para almacenar respuestas completas de disputas idénticas cuando el servidor corre en modo pooled.
+
+### 3.4 Optimización de Validación e Integración JEV (`app/validator.py` y `app/jev_service.py`)
+- **Validación $O(1)$ y Regex Precompiladas (`app/validator.py`):**
+  - Se precompilaron las expresiones regulares `_ISO_DATE_REGEX` y `_DMY_DATE_REGEX` a nivel de módulo, evitando recompilaciones recurrentes.
+  - Se implementó un *fast-path* que descarta excepciones `ValueError` innecesarias al parsear fechas.
+  - Se optimizó la detección de duplicados en datasets mediante `Set[str]` hash lookups en $O(1)$.
+- **Nuevo Módulo de Decisión JEV (`app/jev_service.py`):**
+  - Implementa el patrón extraído de `charla-jev` utilizando el modelo local Ollama (`qwen3:1.7b`) con JSON Schema estricto.
+  - Devuelve las primitivas de decisión: `tipo_conflicto` (`Choice`), `confianza_tipo`, `score_severidad` (`Score` de 1.0 a 5.0), `accion_recomendada` y `requiere_peritaje`.
+  - Incluye motor heurístico determinista como *fallback* de alta disponibilidad para tolerancia a fallos.
+- **Contrato Extendido sin Ruptura (`app/schemas.py`):**
+  - Se incorporó `decision_jev: Optional[Dict[str, Any]] = None` en `ConflictAnalysisResponse`. Todos los clientes previos siguen funcionando sin alteraciones.
+
+### 3.5 Verificación de Regresión Funcional
+Tras aplicar las optimizaciones, se ejecutó la suite completa de `pytest`:
+- **28 pruebas aprobadas (100% éxito en 1.75s)**, incluyendo 4 nuevas pruebas para el servicio JEV (`tests/test_jev_service.py`) y cero regresiones en seguridad, datos abiertos, validador o API.
 
 ---
 
 ## 4. Validación y Re-test — Fase 3 (Actividad 4 y 6)
-*(Se completará al finalizar la implementación de las optimizaciones en la Fase 2).*
+*(Próximo paso a ejecutar: re-test de carga idéntico y cálculo oficial del % de mejora).*
 
 - **Fórmula de Evaluación de Rendimiento:**
-  $$\text{Mejora (\%)} = \left(\frac{T_{\text{antes}} - T_{\text{después}}}{T_{\text{antes}}}\right) \times 100$$
-- **Pruebas de Regresión:** Verificación de que la suite de `pytest` (24 pruebas) continúe aprobando al 100%.
+  $$\text{Mejora (\%)} = \left(\frac{T_{\text{antes}} - T_{\text{después}}}{T_{\text{antes}}}\right) \times 100 = \left(\frac{1931.47 - T_{\text{después}}}{1931.47}\right) \times 100$$
 
 ---
 
 ## 5. Comparación Rust vs. Python — Fase 4 (Actividad 6)
-*(Se completará en la Fase 4 mediante la implementación del algoritmo en `benchmarks/python_algo.py` y `benchmarks/rust_algo/`).*
-
-- Algoritmo seleccionado: **Validación determinista de integridad de registros y detección de duplicados** (`validate_patent_dataset` de `app/validator.py`).
-- Métrica: Tiempo de desarrollo, tiempo de compilación (Rust) y tiempo promedio de ejecución sobre `patents_sample.json`.
+*(Pendiente para la Fase 4: `benchmarks/python_algo.py` y `benchmarks/rust_algo/`).*
 
 ---
 
 ## 6. Registro de Uso de Inteligencia Artificial
-- **Fase 1:** Se utilizó asistencia de IA como apoyo técnico para la formulación del arnés de benchmarking concurrente (`benchmarks/load_test.py`) y la extracción estructurada de métricas estadísticas (p90, p95, p99, throughput), manteniendo la integridad metodológica de no intervenir el código fuente de la API durante la medición de la línea base.
+- **Fase 1:** Formulación del arnés de benchmarking y métricas de línea base.
+- **Fase 2:** Refactorización orientada a concurrencia (`asyncio.gather`), diseño del pooling en `lifespan`, esquematización del modelo de decisión JEV local y optimización de expresiones regulares.

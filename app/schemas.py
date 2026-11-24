@@ -36,3 +36,8 @@ class ConflictAnalysisResponse(BaseModel):
     inconsistencias_tecnicas: List[str] = Field(..., description="Lista unificada de fallas o inconsistencias detectadas por reglas deterministas.")
     analisis_etico_gemini: Optional[Dict[str, Any]] = Field(default=None, description="Evaluación cualitativa y ética producida por Gemini API.")
     limitaciones_y_advertencias: List[str] = Field(..., description="Descargos de responsabilidad y notas metodológicas.")
+    # Extensión compatible con Fase 2: Modelo de Decisión JEV (Choice & Score)
+    decision_jev: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="Decisión estructurada con primitivas Choice de clasificación y Score de severidad."
+    )
