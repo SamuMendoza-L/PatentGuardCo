@@ -1,0 +1,35 @@
+===========================================================================
+  EVIDENCIA DE PRUEBAS DE CARGA Y RENDIMIENTO: LÍNEA BASE (T_antes) - FASE 1
+===========================================================================
+Fecha y hora:            2026-11-23 22:53:45
+Plataforma:              Darwin 25.6.0 (x86_64)
+Entorno Python:          3.13.1 (/Users/samuelmendoza/M-Calidad_de_software/PatentGuard_CO/.venv/bin/python)
+Endpoint evaluado:       http://127.0.0.1:8001/analizar-conflicto
+Parámetros de carga:     200 solicitudes (Concurrencia: 20)
+---------------------------------------------------------------------------
+RESUMEN DE EJECUCIÓN (Métricas requeridas Trabajo 3):
+  • Tiempo total de prueba:       21.712 s
+  • Solicitudes ejecutadas:       200
+  • Solicitudes exitosas (2xx):   200 (100.0%)
+  • Solicitudes fallidas:         0 (0.0%)
+  • Throughput (RPS):             9.21 req/s
+---------------------------------------------------------------------------
+TIEMPOS DE RESPUESTA (Latencia por solicitud):
+  • T_promedio (T_medido):        1931.47 ms
+  • Tiempo mínimo:                424.54 ms
+  • Tiempo máximo:                7931.22 ms
+  • Mediana (p50):                1018.77 ms
+  • Percentil 90 (p90):           4378.06 ms
+  • Percentil 95 (p95):           4582.26 ms
+  • Percentil 99 (p99):           6706.90 ms
+  • Desviación estándar:          1644.60 ms
+---------------------------------------------------------------------------
+DISTRIBUCIÓN DE CÓDIGOS HTTP:
+  • HTTP 200: 200 (100.0%)
+===========================================================================
+CONCLUSIÓN DE ESTADO TÉCNICO:
+  El valor de latencia base registrado T_antes es de 1931.47 ms con una tasa
+  de éxito de 100.0%. Este valor servirá como denominador oficial para
+  el cálculo del porcentaje de mejora en la Fase 3:
+      Mejora (%) = ((T_antes - T_después) / T_antes) * 100
+===========================================================================
