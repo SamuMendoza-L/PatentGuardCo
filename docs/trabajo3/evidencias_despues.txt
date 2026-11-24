@@ -1,0 +1,35 @@
+===========================================================================
+  EVIDENCIA DE PRUEBAS DE CARGA Y RENDIMIENTO: POST-OPTIMIZACIÓN (T_después) - FASE 3
+===========================================================================
+Fecha y hora:            2026-11-23 23:46:36
+Plataforma:              Darwin 25.6.0 (x86_64)
+Entorno Python:          3.13.1 (/Users/samuelmendoza/M-Calidad_de_software/PatentGuard_CO/.venv/bin/python)
+Endpoint evaluado:       http://127.0.0.1:8001/analizar-conflicto
+Parámetros de carga:     200 solicitudes (Concurrencia: 20)
+---------------------------------------------------------------------------
+RESUMEN DE EJECUCIÓN (Métricas requeridas Trabajo 3):
+  • Tiempo total de prueba:       9.630 s
+  • Solicitudes ejecutadas:       200
+  • Solicitudes exitosas (2xx):   200 (100.0%)
+  • Solicitudes fallidas:         0 (0.0%)
+  • Throughput (RPS):             20.77 req/s
+---------------------------------------------------------------------------
+TIEMPOS DE RESPUESTA (Latencia por solicitud):
+  • T_promedio (T_medido):        576.91 ms
+  • Tiempo mínimo:                2.09 ms
+  • Tiempo máximo:                9519.80 ms
+  • Mediana (p50):                10.43 ms
+  • Percentil 90 (p90):           3008.82 ms
+  • Percentil 95 (p95):           4085.00 ms
+  • Percentil 99 (p99):           8935.24 ms
+  • Desviación estándar:          1574.98 ms
+---------------------------------------------------------------------------
+DISTRIBUCIÓN DE CÓDIGOS HTTP:
+  • HTTP 200: 200 (100.0%)
+===========================================================================
+CONCLUSIÓN DE ESTADO TÉCNICO:
+  El valor de latencia base registrado T_antes es de 576.91 ms con una tasa
+  de éxito de 100.0%. Este valor servirá como denominador oficial para
+  el cálculo del porcentaje de mejora en la Fase 3:
+      Mejora (%) = ((T_antes - T_después) / T_antes) * 100
+===========================================================================
